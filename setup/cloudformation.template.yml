@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create resources for Rekognition demo
+
+Parameters:
+  MeetupApiKey:
+    Type: String
+    NoEcho: true
+    Description: API Key for Meetup.com
+
+  RekognitionCollectionId:
+    Type: String
+    Default: Meetup-Collection
+
+
+Resources:
+  KMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: "Key created as part of the Rekognition demo"
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: key-default-1
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Join 
+                - ''
+                - - 'arn:aws:iam::'
+                  - !Ref 'AWS::AccountId'
+                  - ':root'
+            Action: 'kms:*'
+            Resource: '*'
+
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: 'memberId'
+        AttributeType: 'S'
+      KeySchema:
+      - AttributeName: 'memberId'
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 10
+
+  LambdaKMSEncryption:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: "KMS Encryption Custom Resource"
+      Code: ./encrypt_key
+      Handler: encrypt_key.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.7
+      Timeout: '60'
+      Environment:
+        Variables:
+          KMS_KEY: !Ref KMSKey
+
+  LambdaRekognitionCollection:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: "Create Rekognition Collection"
+      Code: ./create_collection
+      Handler: create_collection.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.7
+      Timeout: '60'
+
+  LambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: ["lambda.amazonaws.com"]
+            Action: ["sts:AssumeRole"]
+      Path: "/"
+      Policies:
+        - PolicyName: "Default"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: [
+                  "kms:Encrypt"
+                ]
+                Resource: [
+                  !GetAtt KMSKey.Arn
+                ]
+              - Effect: "Allow"
+                Action: [
+                  "rekognition:CreateCollection",
+                  "rekognition:DeleteCollection"
+                ]
+                Resource: "*"
+              ## Permissions for logging
+              - Effect: "Allow"
+                Action: [
+                  "logs:CreateLogGroup",
+                  "logs:CreateLogStream",
+                  "logs:DescribeLogGroups",
+                  "logs:DescribeLogStreams",
+                  "logs:PutLogEvents",
+                  "logs:GetLogEvents",
+                  "logs:FilterLogEvents",
+                  "logs:DeleteLogGroup",
+                  "logs:PutRetentionPolicy"
+                ]
+                Resource: "*"
+
+  EncryptKey:
+    Type: Custom::EncryptKey
+    Properties:
+      ServiceToken: !GetAtt LambdaKMSEncryption.Arn
+      Region: !Ref "AWS::Region"
+      plain_text_string: !Ref MeetupApiKey
+
+  CreateRekognitionCollection:
+    Type: Custom::EncryptKey
+    Properties:
+      ServiceToken: !GetAtt LambdaRekognitionCollection.Arn
+      Region: !Ref "AWS::Region"
+      collection_id: !Ref RekognitionCollectionId
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+
+
+Outputs:
+  KMSKeyArn:
+    Value: !GetAtt KMSKey.Arn
+  DynamoDBTableArn:
+    Value: !GetAtt DynamoDBTable.Arn
+  DynamoDBTableName:
+    Value: !Ref DynamoDBTable
+  EncryptedApiKey:
+    Value: !GetAtt EncryptKey.encrypted_string
+  RekognitionCollectionId:
+    Value: !Ref RekognitionCollectionId
+  S3BucketArn:
+    Value: !GetAtt S3Bucket.Arn
+  S3BucketName:
+    Value: !Ref S3Bucket

@@ -1,0 +1,15 @@
+*.private.md
+
+## Can't get the git include (!) to work
+encrypt_key/b*
+encrypt_key/c*
+encrypt_key/i*
+encrypt_key/r*
+encrypt_key/u*
+
+create_collection/b*
+create_collection/ce*
+create_collection/ch*
+create_collection/i*
+create_collection/r*
+create_collection/u*
