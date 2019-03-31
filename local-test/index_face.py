@@ -10,7 +10,7 @@ def index_faces(imageByteArray, image_id=None, attributes=(), region="us-east-1"
         Image={
             'Bytes': imageByteArray
         },
-        CollectionId='rekognition-collection-id-goes-here',
+        CollectionId=os.environ['collectionId'],
         ExternalImageId=image_id,
         DetectionAttributes=attributes,
     )

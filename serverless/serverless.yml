@@ -11,18 +11,25 @@ provider:
   iamRoleStatements:
       - Effect: "Allow"
         Action: ['kms:*']
-        # Change the ARN below to the appropriate ARN in your account
-        Resource: "arn:aws:kms:us-east-1:000000000000:key/c4a0491e-9437-4af0-bf27-e22cf9700000"
+        # Change the ARN below to the appropriate ARN in your account - or execute the setup stack
+        # Resource: "arn:aws:kms:us-east-1:000000000000:key/c4a0491e-9437-4af0-bf27-e22cf9700000"
+        Resource: "${cf:Meetup-Rekognition.KMSKeyArn}"
       - Effect: "Allow"
         Action: ['rekognition:*']
         Resource:  "*"
       - Effect: "Allow"
         Action: ['s3:*']
-        Resource: "arn:aws:s3:::la-aws-rekognition-demo/*"
+        # Change the bucket below to the appropriate bucket in your account - or execute the setup stack
+        # Resource: "arn:aws:s3:::la-aws-rekognition-demo/*"
+        Resource: "${cf:Meetup-Rekognition.S3BucketArn}/*"
       - Effect: "Allow"
         Action: ['dynamodb:DescribeTable','dynamodb:GetItem','dynamodb:GetRecords','dynamodb:ListTables','dynamodb:PutItem','dynamodb:Query','dynamodb:Scan','dynamodb:UpdateItem']
-        # Change the ARN below to the appropriate ARN in your account
-        Resource: "arn:aws:dynamodb:us-east-1:000000000000:table/meetup_checkins"
+        # Change the ARN below to the appropriate ARN in your account - or execute the setup stack
+        # Resource: "arn:aws:dynamodb:us-east-1:000000000000:table/meetup_checkins"
+        Resource: ${cf:Meetup-Rekognition.DynamoDBTableArn}
+      - Effect: "Allow"
+        Action: ['polly:SynthesizeSpeech']
+        Resource: "*"
 
 # you can define service wide environment variables here
 #  environment:
@@ -51,24 +58,45 @@ functions:
           enabled: true
     environment:
       # The key below has been altered and is unusable. You need to use KMS and encrypt your own Meetup.com API key
-      meetupApiKey: AQICAHjpNpYouBX5/8G7Y/kpXkdAfQ3AExuaQcnRjx9a/9NpBaG5a+/mz94eyk7F3oo7LJ5cAAAAfAB8AAAqhkig9w0BBwagbTBrAgEAMGYGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM+yXaszew77LaEkxpAgEQgDl7dsqq++4qn7t1LJfP2Q9W5bzrv9GiVjKy/b1voCSM7YXpf8SdTBqY3pxFsmoOMh/Uvct3hlWSLfg=
+      # meetupApiKey: AQICAHjpNpYouBX5/8G7Y/kpXkdAfQ3AExuaQcnRjx9a/9NpBaG5a+/mz94eyk7F3oo7LJ5cAAAAfAB8AAAqhkig9w0BBwagbTBrAgEAMGYGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM+yXaszew77LaEkxpAgEQgDl7dsqq++4qn7t1LJfP2Q9W5bzrv9GiVjKy/b1voCSM7YXpf8SdTBqY3pxFsmoOMh/Uvct3hlWSLfg=
+      meetupApiKey: ${cf:Meetup-Rekognition.EncryptedApiKey}
+      collectionId: ${cf:Meetup-Rekognition.RekognitionCollectionId}
+      dynamoDbTableName: ${cf:Meetup-Rekognition.DynamoDBTableName}
+      eventId: 260120694
 
   searchfaces:
     handler: search_faces.handler
     description: Backend service for doing search by face matching
     timeout: 30
     events:
-      - http: GET searchfaces
+      - http:
+          path: searchfaces
+          method: get
+          cors: true
+      - http:
+          path: searchfaces
+          method: post
+          cors: true
     environment:
       # The key below has been altered and is unusable. You need to use KMS and encrypt your own Meetup.com API key
-      meetupApiKey: AQICAHjpNpYouBX5/8G7Y/kpXkdAfQ3AExuaQcnRjx9a/9NpBaG5a+/mz94eyk7F3oo7LJ5cAAAAfAB8AAAqhkig9w0BBwagbTBrAgEAMGYGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM+yXaszew77LaEkxpAgEQgDl7dsqq++4qn7t1LJfP2Q9W5bzrv9GiVjKy/b1voCSM7YXpf8SdTBqY3pxFsmoOMh/Uvct3hlWSLfg=
+      # meetupApiKey: AQICAHjpNpYouBX5/8G7Y/kpXkdAfQ3AExuaQcnRjx9a/9NpBaG5a+/mz94eyk7F3oo7LJ5cAAAAfAB8AAAqhkig9w0BBwagbTBrAgEAMGYGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM+yXaszew77LaEkxpAgEQgDl7dsqq++4qn7t1LJfP2Q9W5bzrv9GiVjKy/b1voCSM7YXpf8SdTBqY3pxFsmoOMh/Uvct3hlWSLfg=
+      meetupApiKey: ${cf:Meetup-Rekognition.EncryptedApiKey}
+      collectionId: ${cf:Meetup-Rekognition.RekognitionCollectionId}
+      s3Bucket: ${cf:Meetup-Rekognition.S3BucketName}
 
   getmembername:
     handler: get_member_name.handler
     description: A micro service that takes a member id and returns the members given name
     timeout: 5
     events:
-      - http: GET membername
+      - http:
+          path: membername
+          method: get
+          cors: true
+    environment:
+      dynamoDbTableName: ${cf:Meetup-Rekognition.DynamoDBTableName}
+      eventId: 260120694
+      s3Bucket: ${cf:Meetup-Rekognition.S3BucketName}
 
   checkuserin:
     handler: check_member_in.handler

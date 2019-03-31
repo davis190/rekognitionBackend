@@ -233,3 +233,11 @@ ENV/
 Test/*
 
 # End of https://www.gitignore.io/api/node,python,pycharm,serverless
+
+
+bin
+certifi*
+chardet*
+idna*
+requests*
+urllib*

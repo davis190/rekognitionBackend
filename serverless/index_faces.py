@@ -34,6 +34,7 @@ def get_rsvps(event_id):
     resp = requests.get(url=url, params=params)
     data = json.loads(resp.text)
     print json.dumps(data['results'], indent=4, sort_keys=True)
+    # print data['results']
     return data['results']
 
 
@@ -44,7 +45,7 @@ def index_faces(imageByteArray, image_id=None, attributes=(), region="us-east-1"
         Image={
             'Bytes': imageByteArray
         },
-        CollectionId='rekognition-collection-id-goes-here',  # Insert your own collection ID here
+        CollectionId=os.environ['collectionId'],
         ExternalImageId=image_id,
         DetectionAttributes=attributes,
     )
@@ -85,8 +86,21 @@ def processRsvp(rsvps, event_id):
         try:
             highres_url = rsvp["member_photo"]["highres_link"]
         except:
-            log("Error: " + member_id + " (" + member_name + ")" + " No high res photo found", True)
-            continue
+            try:
+                log("Error: " + member_id + " (" + member_name + ") Trying to fetch high res photo from member api", True)
+                
+                url = 'https://api.meetup.com/2/member/'+str(member_id)
+                params = dict(
+                    key=decrypt_kms_data(os.environ['meetupApiKey']),
+                )
+
+                resp = requests.get(url=url, params=params)
+                data = json.loads(resp.text)
+                highres_url = data['photo']["highres_link"]
+            
+            except:
+                log("Error: " + member_id + " (" + member_name + ")" + " No high res photo found", True)
+                continue
 
         try:
             converted_image = image2ByteArray(highres_url, member_id)
@@ -119,7 +133,7 @@ def add_image_to_collection():
 
 def update_dynamodb(meetup_id, member_id, member_name, checked_in):
     dynamodb = boto3.resource('dynamodb', region_name='us-east-1', endpoint_url="https://dynamodb.us-east-1.amazonaws.com")
-    table = dynamodb.Table('your-dynamodb-table-name-goes-here')  # Add your DynamoDB table name here
+    table = dynamodb.Table(os.environ['dynamoDbTableName'])
     try:
         table.put_item(
             Item={
@@ -135,7 +149,7 @@ def update_dynamodb(meetup_id, member_id, member_name, checked_in):
 
 def handler(event, context):
     global rsvps
-    event_id = 123456789  # Add your Meetup.com Event ID over here
+    event_id = os.environ['eventId']
     rsvps = get_rsvps(event_id)
     try:
         os.remove("/tmp/rekognition.log")

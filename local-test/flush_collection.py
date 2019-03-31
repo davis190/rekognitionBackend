@@ -8,7 +8,7 @@ import urllib
 import os
 
 rekognition = boto3.client("rekognition", 'us-east-1')
-faces = rekognition.list_faces(CollectionId='rekognition-collection-id-goes-here')
+faces = rekognition.list_faces(CollectionId=os.environ['collectionId'])
 
 for face in faces["Faces"]:
-  response = rekognition.delete_faces(CollectionId='rekognition-collection-id-goes-here', FaceIds=[face["FaceId"]])
+  response = rekognition.delete_faces(CollectionId=os.environ['collectionId'], FaceIds=[face["FaceId"]])
